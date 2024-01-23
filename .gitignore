@@ -1,7 +1,9 @@
 *.class
+lib
 
 .project
 .classpath
 .settings
+.vscode
 
 *.sh
