@@ -50,46 +50,85 @@ public class DBConnection {
             username = this.POSTGRESQL_USERNAME;
             password = this.POSTGRESQL_PASSWORD;
         }
-        return connection;
+
+        return DriverManager.getConnection(JDBC_URL, username, password);
     }
 
-    public void insertProduct(IProduct product) {
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
+    public void insertProduct(IProduct product) throws SQLException {
+        Connection connection = this.getDriverManager(product.getDBMS());
+        String sql = "INSERT INTO products (name, quantity, price_per_unit, DBMS) VALUES (?, ?, ?, ?)";
 
-            Connection connection = this.getDriverManager(product.getDBMS());
-            String sql = "INSERT INTO products (name, quantity, price_per_unit, DBMS) VALUES (?, ?, ?, ?)";
-            try (PreparedStatement preparedStatement = connection.prepareStatement(sql,
-                    Statement.RETURN_GENERATED_KEYS)) {
+        PreparedStatement preparedStatement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
 
-                preparedStatement.setString(1, product.getName());
-                preparedStatement.setInt(2, product.getQuantity());
-                preparedStatement.setFloat(3, product.getPricePerUnit());
-                preparedStatement.setString(4, product.getDBMS());
+        preparedStatement.setString(1, product.getName());
+        preparedStatement.setInt(2, product.getQuantity());
+        preparedStatement.setFloat(3, product.getPricePerUnit());
+        preparedStatement.setString(4, product.getDBMS());
+        preparedStatement.executeUpdate();
 
-                preparedStatement.executeUpdate();
+        ResultSet generatedKeys = preparedStatement.getGeneratedKeys();
+        if (generatedKeys.next())
+            product.setId(generatedKeys.getInt(1));
+    }
 
-                ResultSet generatedKeys = preparedStatement.getGeneratedKeys();
-                if (generatedKeys.next()) {
-                    product.setId(generatedKeys.getInt(1));
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+    private List<IProduct> selectProductsFromDBMS(String DBMS) throws SQLException {
+        List<IProduct> productList = new ArrayList<>();
+        String sql = "SELECT * FROM products";
+
+        Connection connection = getDriverManager(DBMS);
+        Statement statement = connection.createStatement();
+        ResultSet resultSet = statement.executeQuery(sql);
+
+        while (resultSet.next()) {
+            productList.add(new MySQLProduct(
+                    resultSet.getInt("id"),
+                    resultSet.getString("name"),
+                    resultSet.getInt("quantity"),
+                    resultSet.getFloat("price_per_unit")));
         }
+
+        return productList;
     }
 
-    public List<IProduct> selectProducts() {
-        return null;
+    public List<IProduct> selectProducts() throws SQLException {
+        List<IProduct> products = selectProductsFromDBMS("MySQL");
+        products.addAll(selectProductsFromDBMS("PostgreSQL"));
+
+        return products;
     }
 
-    public IProduct selectProduct(int id) {
-        return null;
+    public void updateProduct(IProduct product) throws SQLException {
+        Connection connection = getDriverManager(product.getDBMS());
+        String sql = "UPDATE products SET name = ?, quantity = ?, price_per_unit = ?, DBMS = ? WHERE id = ?";
+
+        PreparedStatement preparedStatement = connection.prepareStatement(sql);
+        preparedStatement.setInt(5, product.getId());
+        preparedStatement.setString(1, product.getName());
+        preparedStatement.setInt(2, product.getQuantity());
+        preparedStatement.setDouble(3, product.getPricePerUnit());
+        preparedStatement.setString(4, product.getDBMS());
+
+        preparedStatement.executeUpdate();
     }
 
-    public void updateProduct(int id) {
+    public void deleteProduct(IProduct product) throws SQLException {
+        Connection connection = getDriverManager(product.getDBMS());
+        String sql = "DELETE FROM products WHERE id = ?";
+
+        PreparedStatement preparedStatement = connection.prepareStatement(sql);
+        preparedStatement.setInt(1, product.getId());
+        preparedStatement.executeUpdate();
     }
 
-    public void deleteProduct(int id) {
+    public void resetDatabases() throws SQLException {
+        Connection connection;
+
+        connection = getDriverManager("MySQL");
+        connection.prepareStatement("DELETE FROM products").executeUpdate();
+        connection.prepareStatement("ALTER TABLE products AUTO_INCREMENT=1").executeUpdate();
+
+        connection = getDriverManager("PostgreSQL");
+        connection.prepareStatement("DELETE FROM products").executeUpdate();
+        connection.prepareStatement("ALTER SEQUENCE products_id_seq RESTART WITH 1").executeUpdate();
     }
 }
