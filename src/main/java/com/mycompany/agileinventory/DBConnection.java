@@ -38,19 +38,17 @@ public class DBConnection {
         return connection;
     }
 
-    private Connection getDriverManager(String DBMS) {
-        Connection connection = null;
+    private Connection getDriverManager(String DBMS) throws SQLException {
+        String JDBC_URL = "", username = "", password = "";
 
-        String JDBC_URL = switch (DBMS) {
-            case "MySQL" -> this.MySQLURL;
-            case "PostgreSQL" -> this.PosgreSQLURL;
-            default -> "Invalid DBMS";
-        };
-
-        try {
-            connection = DriverManager.getConnection(JDBC_URL, this.username, this.password);
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
+        if (DBMS == "MySQL") {
+            JDBC_URL = this.MYSQL_JDBC_URL;
+            username = this.MYSQL_USERNAME;
+            password = this.MYSQL_PASSWORD;
+        } else if (DBMS == "PostgreSQL") {
+            JDBC_URL = this.POSTGRESQL_JDBC_URL;
+            username = this.POSTGRESQL_USERNAME;
+            password = this.POSTGRESQL_PASSWORD;
         }
         return connection;
     }
