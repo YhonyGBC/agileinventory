@@ -80,11 +80,19 @@ public class DBConnection {
         ResultSet resultSet = statement.executeQuery(sql);
 
         while (resultSet.next()) {
-            productList.add(new MySQLProduct(
-                    resultSet.getInt("id"),
-                    resultSet.getString("name"),
-                    resultSet.getInt("quantity"),
-                    resultSet.getFloat("price_per_unit")));
+            if (DBMS == "MySQL") {
+                productList.add(new MySQLProduct(
+                        resultSet.getInt("id"),
+                        resultSet.getString("name"),
+                        resultSet.getInt("quantity"),
+                        resultSet.getFloat("price_per_unit")));
+            } else if (DBMS == "PostgreSQL") {
+                productList.add(new PostgreSQLProduct(
+                        resultSet.getInt("id"),
+                        resultSet.getString("name"),
+                        resultSet.getInt("quantity"),
+                        resultSet.getFloat("price_per_unit")));
+            }
         }
 
         return productList;
