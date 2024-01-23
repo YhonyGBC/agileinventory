@@ -1,19 +1,11 @@
 package com.mycompany.agileinventory;
 
-public class ProductFactory extends AbstractFactory {
+public class ProductFactory {
 
-    public IProduct factory(String name, int count, float unitValue) {
-        if (unitValue > 100000)
-            return createMySQLProduct(name, count, unitValue);
+    public static IProduct factory(String name, int quantity, float pricePerUnit) {
+        if (pricePerUnit > 100000)
+            return new MySQLProduct(0, name, quantity, pricePerUnit);
 
-        return createPostgreSQLProduct(name, count, unitValue);
-    }
-
-    private MySQLProduct createMySQLProduct(String name, int count, float unitValue) {
-        return null;
-    }
-
-    private PostgreSQLProduct createPostgreSQLProduct(String name, int count, float unitValue) {
-        return null;
+        return new PostgreSQLProduct(0, name, quantity, pricePerUnit);
     }
 }

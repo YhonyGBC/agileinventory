@@ -4,15 +4,16 @@ public class PostgreSQLProduct implements IProduct {
 
     private int id;
     private String name;
-    private int count;
-    private float unitValue;
-    private final String databaseName = "PosgreSQL";
+    private int quantity;
+    private float pricePerUnit;
+    private final String DBMS;
 
-    public PostgreSQLProduct(int id, String name, int count, float unitValue) {
+    public PostgreSQLProduct(int id, String name, int quantity, float pricePerUnit) {
         this.id = id;
         this.name = name;
-        this.count = count;
-        this.unitValue = unitValue;
+        this.quantity = quantity;
+        this.pricePerUnit = pricePerUnit;
+        this.DBMS = "PosgreSQL";
     }
 
     public int getId() {
@@ -23,27 +24,36 @@ public class PostgreSQLProduct implements IProduct {
         return this.name;
     }
 
-    public int getCount() {
-        return this.count;
+    public int getQuantity() {
+        return this.quantity;
     }
 
-    public float getUnitValue() {
-        return this.unitValue;
+    public float getPricePerUnit() {
+        return this.pricePerUnit;
     }
 
-    public String getDatabaseName() {
-        return this.databaseName;
+    public String getDBMS() {
+        return this.DBMS;
+    }
+
+    public void setId(int id) {
+        this.id = id;
     }
 
     public void setName(String name) {
         this.name = name;
     }
 
-    public void setCount(int count) {
-        this.count = count;
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
     }
 
-    public void setUnitValue(float unitValue) {
-        this.unitValue = unitValue;
+    public void setPricePerUnit(float pricePerUnit) {
+        this.pricePerUnit= pricePerUnit;
+    }
+
+    @Override
+    protected Object clone() throws CloneNotSupportedException {
+        return super.clone();
     }
 }

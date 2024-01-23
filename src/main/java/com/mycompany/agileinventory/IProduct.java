@@ -1,13 +1,14 @@
 package com.mycompany.agileinventory;
 
-public interface IProduct {
+public interface IProduct extends Cloneable {
     public int getId();
     public String getName();
-    public int getCount();
-    public float getUnitValue();
-    public String getDatabaseName();
+    public int getQuantity();
+    public float getPricePerUnit();
+    public String getDBMS();
 
+    public void setId(int id);
     public void setName(String name);
-    public void setCount(int count);
-    public void setUnitValue(float unitValue);
+    public void setQuantity(int count);
+    public void setPricePerUnit(float unitValue);
 }
