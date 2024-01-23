@@ -4,7 +4,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 
@@ -31,11 +30,11 @@ public class DBConnection {
     private Connection getDriverManager(String DBMS) {
         Connection connection = null;
 
-        String JDBC_URL = switch(DBMS) {
+        String JDBC_URL = switch (DBMS) {
             case "MySQL" -> this.MySQLURL;
             case "PostgreSQL" -> this.PosgreSQLURL;
             default -> "Invalid DBMS";
-        }; 
+        };
 
         try {
             connection = DriverManager.getConnection(JDBC_URL, this.username, this.password);
@@ -46,10 +45,13 @@ public class DBConnection {
     }
 
     public void insertProduct(IProduct product) {
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
 
-        try (Connection connection = this.getDriverManager(product.getDBMS())) {
+            Connection connection = this.getDriverManager(product.getDBMS());
             String sql = "INSERT INTO products (name, quantity, price_per_unit, DBMS) VALUES (?, ?, ?, ?)";
-            try (PreparedStatement preparedStatement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            try (PreparedStatement preparedStatement = connection.prepareStatement(sql,
+                    Statement.RETURN_GENERATED_KEYS)) {
 
                 preparedStatement.setString(1, product.getName());
                 preparedStatement.setInt(2, product.getQuantity());
@@ -63,7 +65,7 @@ public class DBConnection {
                     product.setId(generatedKeys.getInt(1));
                 }
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
