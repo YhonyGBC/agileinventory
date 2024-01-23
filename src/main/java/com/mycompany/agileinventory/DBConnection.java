@@ -4,20 +4,31 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.List;
 
 public class DBConnection {
 
     private static DBConnection connection;
-    private String dbName = "agileinventorydb";
 
-    private String MySQLURL = "jdbc:mysql://localhost:3306/" + this.dbName;
-    private String PosgreSQLURL = "jdbc:postgresql://localhost:5432/" + this.dbName;
-    private String username = "root";
-    private String password = "";
+    private final String dbName;
+    private final String MYSQL_JDBC_URL;
+    private final String POSTGRESQL_JDBC_URL;
+    private final String MYSQL_USERNAME;
+    private final String MYSQL_PASSWORD;
+    private final String POSTGRESQL_USERNAME;
+    private final String POSTGRESQL_PASSWORD;
 
     private DBConnection() {
+        this.dbName = "agileinventorydb";
+        this.MYSQL_JDBC_URL = "jdbc:mysql://localhost:3306/" + this.dbName;
+        this.POSTGRESQL_JDBC_URL = "jdbc:postgresql://localhost:5432/" + this.dbName;
+        this.MYSQL_USERNAME = "root";
+        this.MYSQL_PASSWORD = "";
+        this.POSTGRESQL_USERNAME = "postgres";
+        this.POSTGRESQL_PASSWORD = "postgres";
     }
 
     public static DBConnection getInstance() {
