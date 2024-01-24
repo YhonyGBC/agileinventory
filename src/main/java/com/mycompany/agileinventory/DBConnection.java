@@ -28,7 +28,7 @@ public class DBConnection {
         this.MYSQL_USERNAME = "root";
         this.MYSQL_PASSWORD = "";
         this.POSTGRESQL_USERNAME = "postgres";
-        this.POSTGRESQL_PASSWORD = "postgres";
+        this.POSTGRESQL_PASSWORD = "123";
     }
 
     public static DBConnection getInstance() {
@@ -80,13 +80,24 @@ public class DBConnection {
         ResultSet resultSet = statement.executeQuery(sql);
 
         while (resultSet.next()) {
-            productList.add(new MySQLProduct(
+            if (DBMS == "MySQL") {
+                productList.add(new MySQLProduct(
                     resultSet.getInt("id"),
                     resultSet.getString("name"),
                     resultSet.getInt("quantity"),
                     resultSet.getFloat("price_per_unit")));
-        }
+                
+            } else {
 
+                productList.add(new PostgreSQLProduct(
+                    resultSet.getInt("id"),
+                    resultSet.getString("name"),
+                    resultSet.getInt("quantity"),
+                    resultSet.getFloat("price_per_unit")));
+                
+            }
+        }   
+       
         return productList;
     }
 
@@ -131,4 +142,37 @@ public class DBConnection {
         connection.prepareStatement("DELETE FROM products").executeUpdate();
         connection.prepareStatement("ALTER SEQUENCE products_id_seq RESTART WITH 1").executeUpdate();
     }
+    
+    public IProduct selectProductById(int productId) throws SQLException {
+        String sql = "SELECT * FROM products WHERE id = ?";
+        try (Connection connection = getDriverManager("MySQL");
+             PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+            preparedStatement.setInt(1, productId);
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            if (resultSet.next()) {
+                String name = resultSet.getString("name");
+                int quantity = resultSet.getInt("quantity");
+                float pricePerUnit = resultSet.getFloat("price_per_unit");
+                String dbms = resultSet.getString("DBMS");
+
+                // Determinar el tipo de producto según el DBMS
+                IProduct product;
+                if ("MySQL".equals(dbms)) {
+                    product = new MySQLProduct(productId, name, quantity, pricePerUnit);
+                } else if ("PostgreSQL".equals(dbms)) {
+                    product = new PostgreSQLProduct(productId, name, quantity, pricePerUnit);
+                } else {
+                    // Manejar un DBMS desconocido según tus necesidades
+                    throw new UnsupportedOperationException("DBMS desconocido: " + dbms);
+                }
+
+                return product;
+            } else {
+                // El producto no fue encontrado
+                return null;
+            }
+        }
+    }
+
 }

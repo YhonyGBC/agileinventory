@@ -4,24 +4,145 @@
  */
 package com.mycompany.agileinventory;
 
-/**
- *
- * @author ttaniel
- */
+import javax.swing.table.DefaultTableModel;
+import java.sql.SQLException;
+import java.util.List;
+
 public class AgileInventoryFrame extends javax.swing.JFrame {
 
-    /**
-     * Creates new form AgileInventoryFrame
-     */
     public AgileInventoryFrame() {
         initComponents();
+        customInitComponents();
+
+        inventoryTable.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                inventoryTableMouseClicked(evt);
+            }
+        });
+    }
+    
+    private void customInitComponents() {
+        // Elimina las filas por defecto de la tabla
+        DefaultTableModel model = (DefaultTableModel) inventoryTable.getModel();
+        model.setRowCount(0);
+
+        loadProducts();
+        clearFormFields();
+
+        saveButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                saveButtonActionPerformed(evt);
+            }
+        });
+    }
+    
+    private void loadProducts() {
+        try {
+            DBConnection conn = DBConnection.getInstance();
+            List<IProduct> products = conn.selectProducts();
+
+            DefaultTableModel model = (DefaultTableModel) inventoryTable.getModel();
+            model.setRowCount(0);
+
+            for (IProduct product : products) {
+                Object[] row = {
+                        product.getId(),
+                        product.getName(),
+                        product.getQuantity(),
+                        product.getPricePerUnit(),
+                        product.getQuantity() * product.getPricePerUnit(),
+                        product.getDBMS()
+                };
+                model.addRow(row);
+            }
+
+            // Actualiza el campo de total y el campo de recuento de productos
+            updateTotalField();
+            updateProductCountField();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    private void updateTotalField() {
+        DefaultTableModel model = (DefaultTableModel) inventoryTable.getModel();
+        float total = 0;
+
+        for (int i = 0; i < model.getRowCount(); i++) {
+            total += (float) model.getValueAt(i, 4); // La columna 4 es el subtotal
+        }
+
+        totalField.setText(String.valueOf(total));
+    }
+    
+    private void updateProductCountField() {
+        DefaultTableModel model = (DefaultTableModel) inventoryTable.getModel();
+        int rowCount = model.getRowCount();
+        pCountField.setText(String.valueOf(rowCount));
+    }
+    
+    private void saveButtonActionPerformed(java.awt.event.ActionEvent evt) {                                           
+        try {
+            // Obtener datos del formulario
+            String name = nameField.getText();
+            int quantity = Integer.parseInt(countField.getText());
+            float pricePerUnit = Float.parseFloat(priceField.getText());
+
+            // Crear un nuevo producto utilizando factory
+            IProduct newProduct = ProductFactory.factory(name, quantity, pricePerUnit);
+
+            // Insertar el nuevo producto en la base de datos
+            DBConnection conn = DBConnection.getInstance();
+            conn.insertProduct(newProduct);
+
+            // Recargar la tabla para mostrar el nuevo producto
+            loadProducts();
+
+            // Limpiar los campos del formulario después de guardar
+            clearFormFields();
+        } catch (NumberFormatException | SQLException e) {
+            e.printStackTrace();
+        }
+    }
+    
+      
+
+    private void clearFormFields() {
+        idField.setText("");
+        nameField.setText("");
+        countField.setText("");
+        priceField.setText("");
+        dbmsField.setText("");
+    }
+    
+    private void inventoryTableMouseClicked(java.awt.event.MouseEvent evt) {                                           
+        try {
+            int selectedRow = inventoryTable.getSelectedRow();
+
+            if (selectedRow != -1) {
+                int productId = (int) inventoryTable.getValueAt(selectedRow, 0);
+                String dbms = (String) inventoryTable.getValueAt(selectedRow, 5);
+
+                DBConnection conn = DBConnection.getInstance();
+
+                IProduct selectedProduct = conn.selectProductById(productId);
+
+                if (selectedProduct != null) {
+                    idField.setText(String.valueOf(selectedProduct.getId()));
+                    nameField.setText(selectedProduct.getName());
+                    countField.setText(String.valueOf(selectedProduct.getQuantity()));
+                    priceField.setText(String.valueOf(selectedProduct.getPricePerUnit()));
+                    dbmsField.setText(selectedProduct.getDBMS());
+                } else {
+                    System.out.println("No se encontró el producto con ID: " + productId);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
-    /**
-     * This method is called from within the constructor to initialize the form.
-     * WARNING: Do NOT modify this code. The content of this method is always
-     * regenerated by the Form Editor.
-     */
+
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
@@ -187,7 +308,7 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
             .addGroup(jPanel2Layout.createSequentialGroup()
                 .addGap(33, 33, 33)
                 .addComponent(jLabel4)
-                .addGap(0, 41, Short.MAX_VALUE))
+                .addGap(0, 59, Short.MAX_VALUE))
             .addGroup(jPanel2Layout.createSequentialGroup()
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
@@ -240,7 +361,6 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGap(18, 18, 18)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addGap(3, 3, 3)
@@ -269,11 +389,12 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 240, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(18, 18, 18)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(jLabel2)
-                            .addComponent(totalField, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(jLabel3)
-                            .addComponent(pCountField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                .addComponent(totalField, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(jLabel3)
+                                .addComponent(pCountField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
@@ -285,7 +406,33 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_totalFieldActionPerformed
 
     private void removeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeButtonActionPerformed
-        // TODO add your handling code here:
+        try {
+            // Obtener el índice de la fila seleccionada
+            int selectedRow = inventoryTable.getSelectedRow();
+
+            if (selectedRow != -1) { // Verificar si se seleccionó una fila
+                // Obtener el id del producto seleccionado
+                int productId = (int) inventoryTable.getValueAt(selectedRow, 0);
+
+                // Obtener el producto de la base de datos
+                DBConnection conn = DBConnection.getInstance();
+                IProduct productToRemove = conn.selectProductById(productId);
+
+                // Eliminar el producto de la base de datos
+                conn.deleteProduct(productToRemove);
+
+                // Recargar la tabla para mostrar los cambios
+                loadProducts();
+
+                // Limpiar los campos del formulario después de eliminar
+                clearFormFields();
+            } else {
+                // Mostrar un mensaje indicando que no se ha seleccionado un producto
+                System.out.println("Seleccione un producto para eliminar.");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }//GEN-LAST:event_removeButtonActionPerformed
 
     /**
@@ -316,11 +463,7 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
         //</editor-fold>
 
         /* Create and display the form */
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                new AgileInventoryFrame().setVisible(true);
-            }
-        });
+        java.awt.EventQueue.invokeLater(() -> new AgileInventoryFrame().setVisible(true));
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
