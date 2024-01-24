@@ -143,18 +143,18 @@ public class DBConnection {
         connection.prepareStatement("ALTER SEQUENCE products_id_seq RESTART WITH 1").executeUpdate();
     }
     
-    public IProduct selectProductById(int productId) throws SQLException {
-        String sql = "SELECT * FROM products WHERE id = ?";
-        try (Connection connection = getDriverManager("MySQL");
+    public IProduct selectProductByIdAndDBMS(int productId, String dbms) throws SQLException {
+        String sql = "SELECT * FROM products WHERE id = ? AND DBMS = ?";
+        try (Connection connection = getDriverManager(dbms);
              PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
             preparedStatement.setInt(1, productId);
+            preparedStatement.setString(2, dbms);
             ResultSet resultSet = preparedStatement.executeQuery();
 
             if (resultSet.next()) {
                 String name = resultSet.getString("name");
                 int quantity = resultSet.getInt("quantity");
                 float pricePerUnit = resultSet.getFloat("price_per_unit");
-                String dbms = resultSet.getString("DBMS");
 
                 // Determinar el tipo de producto según el DBMS
                 IProduct product;
