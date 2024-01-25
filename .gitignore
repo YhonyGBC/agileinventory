@@ -1,5 +1,8 @@
-*.class
+target
 lib
+
+*.lst
+*.propertie
 
 .project
 .classpath
