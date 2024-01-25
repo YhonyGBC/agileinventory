@@ -7,6 +7,7 @@ com\mycompany\agileinventory\AgileInventoryFrame$4.class
 com\mycompany\agileinventory\PostgreSQLProduct.class
 com\mycompany\agileinventory\AgileInventoryFrame$5.class
 com\mycompany\agileinventory\MySQLProduct.class
+com\mycompany\agileinventory\AgileInventoryFrame$6.class
 com\mycompany\agileinventory\IProduct.class
 com\mycompany\agileinventory\AbstractProduct.class
 com\mycompany\agileinventory\AgileInventoryFrame.class

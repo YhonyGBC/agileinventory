@@ -7,11 +7,16 @@ package com.mycompany.agileinventory;
 import javax.swing.table.DefaultTableModel;
 import java.sql.SQLException;
 import java.util.List;
+import java.text.DecimalFormat;
 
 public class AgileInventoryFrame extends javax.swing.JFrame {
+    private DBConnection conn;
 
     public AgileInventoryFrame() {
         initComponents();
+        
+        conn = DBConnection.getInstance();
+        
         customInitComponents();
 
         inventoryTable.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -38,7 +43,6 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
     
     private void loadProducts() {
         try {
-            DBConnection conn = DBConnection.getInstance();
             List<IProduct> products = conn.selectProducts();
 
             DefaultTableModel model = (DefaultTableModel) inventoryTable.getModel();
@@ -69,10 +73,14 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
         float total = 0;
 
         for (int i = 0; i < model.getRowCount(); i++) {
-            total += (float) model.getValueAt(i, 4); // La columna 4 es el subtotal
+            total += (float) model.getValueAt(i, 4); 
         }
 
-        totalField.setText(String.valueOf(total));
+        // Formatear el valor total utilizando DecimalFormat
+        DecimalFormat decimalFormat = new DecimalFormat("#,###.00");
+        String formattedTotal = decimalFormat.format(total);
+        
+        totalField.setText(String.valueOf(formattedTotal));
     }
     
     private void updateProductCountField() {
@@ -83,29 +91,21 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
     
     private void saveButtonActionPerformed(java.awt.event.ActionEvent evt) {                                           
         try {
-            // Obtener datos del formulario
             String name = nameField.getText();
             int quantity = Integer.parseInt(countField.getText());
             float pricePerUnit = Float.parseFloat(priceField.getText());
 
-            // Crear un nuevo producto utilizando factory
             IProduct newProduct = ProductFactory.factory(name, quantity, pricePerUnit);
 
-            // Insertar el nuevo producto en la base de datos
-            DBConnection conn = DBConnection.getInstance();
             conn.insertProduct(newProduct);
 
-            // Recargar la tabla para mostrar el nuevo producto
             loadProducts();
 
-            // Limpiar los campos del formulario después de guardar
             clearFormFields();
         } catch (NumberFormatException | SQLException e) {
             e.printStackTrace();
         }
     }
-    
-      
 
     private void clearFormFields() {
         idField.setText("");
@@ -123,9 +123,7 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
                 int productId = (int) inventoryTable.getValueAt(selectedRow, 0);
                 String dbms = (String) inventoryTable.getValueAt(selectedRow, 5);
 
-                DBConnection conn = DBConnection.getInstance();
-
-                IProduct selectedProduct = conn.selectProductById(productId);
+                IProduct selectedProduct = conn.selectProductByIdAndDBMS(productId, dbms);
 
                 if (selectedProduct != null) {
                     idField.setText(String.valueOf(selectedProduct.getId()));
@@ -134,14 +132,13 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
                     priceField.setText(String.valueOf(selectedProduct.getPricePerUnit()));
                     dbmsField.setText(selectedProduct.getDBMS());
                 } else {
-                    System.out.println("No se encontró el producto con ID: " + productId);
+                    System.out.println("No se encontró el producto con ID: " + productId + " y DBMS: " + dbms);
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
-
 
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
@@ -169,6 +166,7 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
         cancelButton = new javax.swing.JButton();
         idField = new javax.swing.JTextField();
         dbmsField = new javax.swing.JTextField();
+        Clone = new javax.swing.JButton();
         pCountField = new javax.swing.JTextField();
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
@@ -183,7 +181,7 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
         );
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-        setPreferredSize(new java.awt.Dimension(800, 400));
+        setPreferredSize(new java.awt.Dimension(900, 500));
 
         inventoryTable.setBackground(new java.awt.Color(204, 204, 204));
         inventoryTable.setModel(new javax.swing.table.DefaultTableModel(
@@ -207,28 +205,24 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
         });
         jScrollPane1.setViewportView(inventoryTable);
 
-        jLabel1.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
+        jLabel1.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
         jLabel1.setText("Agile Inventory");
 
-        jLabel2.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        jLabel2.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
         jLabel2.setText("Products count:");
 
+        totalField.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         totalField.setText("totalField");
         totalField.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-        totalField.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                totalFieldActionPerformed(evt);
-            }
-        });
 
-        jLabel3.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
+        jLabel3.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
         jLabel3.setText("Total:");
 
         jPanel2.setBackground(new java.awt.Color(204, 204, 204));
         jPanel2.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
 
         jLabel4.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jLabel4.setText("Add/Edit/Remove Product");
+        jLabel4.setText("Add/Clone/Remove Product");
 
         jLabel5.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
         jLabel5.setText("Id:");
@@ -243,6 +237,7 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
 
         countField.setText("countField");
 
+        jLabel8.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
         jLabel8.setText("Price:");
 
         priceField.setText("priceField");
@@ -265,6 +260,11 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
         cancelButton.setBackground(new java.awt.Color(255, 0, 0));
         cancelButton.setText("Cancel");
         cancelButton.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
+        cancelButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                cancelButtonActionPerformed(evt);
+            }
+        });
 
         idField.setText("idField");
         idField.setEnabled(false);
@@ -272,50 +272,49 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
         dbmsField.setText("dbmsField");
         dbmsField.setEnabled(false);
 
+        Clone.setBackground(new java.awt.Color(0, 0, 255));
+        Clone.setText("Clone");
+        Clone.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
+        Clone.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                cloneButtonActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel2Layout.createSequentialGroup()
-                .addGap(12, 12, 12)
                 .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jLabel9)
-                    .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                        .addGroup(jPanel2Layout.createSequentialGroup()
-                            .addComponent(jLabel5)
-                            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
-                            .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                                .addGroup(jPanel2Layout.createSequentialGroup()
+                    .addGroup(jPanel2Layout.createSequentialGroup()
+                        .addGap(12, 12, 12)
+                        .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jLabel9)
+                            .addGroup(jPanel2Layout.createSequentialGroup()
+                                .addComponent(jLabel5)
+                                .addGap(52, 52, 52)
+                                .addComponent(idField, javax.swing.GroupLayout.PREFERRED_SIZE, 190, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addGroup(jPanel2Layout.createSequentialGroup()
+                                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                     .addComponent(jLabel6)
-                                    .addGap(18, 18, 18)
-                                    .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                                        .addComponent(idField)
-                                        .addComponent(nameField, javax.swing.GroupLayout.DEFAULT_SIZE, 190, Short.MAX_VALUE)))
-                                .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jPanel2Layout.createSequentialGroup()
-                                    .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                        .addGroup(jPanel2Layout.createSequentialGroup()
-                                            .addComponent(jLabel7)
-                                            .addGap(18, 18, 18))
-                                        .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel2Layout.createSequentialGroup()
-                                            .addComponent(jLabel8)
-                                            .addGap(30, 30, 30)))
-                                    .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                        .addComponent(countField, javax.swing.GroupLayout.DEFAULT_SIZE, 188, Short.MAX_VALUE)
-                                        .addComponent(priceField)
-                                        .addComponent(dbmsField))))
-                            .addGap(23, 23, 23)))))
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addGap(33, 33, 33)
-                .addComponent(jLabel4)
-                .addGap(0, 59, Short.MAX_VALUE))
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(saveButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(removeButton, javax.swing.GroupLayout.DEFAULT_SIZE, 100, Short.MAX_VALUE)
-                    .addComponent(cancelButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addGap(0, 0, Short.MAX_VALUE))
+                                    .addComponent(jLabel7)
+                                    .addComponent(jLabel8))
+                                .addGap(26, 26, 26)
+                                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                    .addComponent(countField, javax.swing.GroupLayout.PREFERRED_SIZE, 188, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addComponent(nameField, javax.swing.GroupLayout.PREFERRED_SIZE, 190, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addComponent(priceField, javax.swing.GroupLayout.PREFERRED_SIZE, 188, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addComponent(dbmsField, javax.swing.GroupLayout.PREFERRED_SIZE, 188, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addComponent(saveButton, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addComponent(cancelButton, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                                        .addComponent(Clone, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                        .addComponent(removeButton, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 100, Short.MAX_VALUE))))))
+                    .addGroup(jPanel2Layout.createSequentialGroup()
+                        .addGap(29, 29, 29)
+                        .addComponent(jLabel4)))
+                .addContainerGap(17, Short.MAX_VALUE))
         );
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -342,15 +341,18 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
                 .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel9)
                     .addComponent(dbmsField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGap(18, 18, 18)
                 .addComponent(saveButton)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(Clone)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(removeButton)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(cancelButton)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap(23, Short.MAX_VALUE))
         );
 
+        pCountField.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
         pCountField.setText("pCountField");
         pCountField.setEnabled(false);
 
@@ -360,80 +362,107 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                        .addGap(3, 3, 3)
+                .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
                         .addComponent(jLabel2, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(pCountField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(jLabel3)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addGap(18, 18, 18)
                         .addComponent(totalField, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(6, 6, 6))
+                        .addContainerGap())
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
-                            .addComponent(jLabel1)
-                            .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 452, javax.swing.GroupLayout.PREFERRED_SIZE))
-                        .addContainerGap())))
+                        .addGap(0, 4, Short.MAX_VALUE)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                .addComponent(jLabel1)
+                                .addGap(162, 162, 162))
+                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 488, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addContainerGap())))))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addGap(12, 12, 12)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(jLabel1)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 240, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(18, 18, 18)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jLabel2)
-                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                                .addComponent(totalField, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addComponent(jLabel3)
-                                .addComponent(pCountField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(totalField, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel3)
+                            .addComponent(pCountField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel2))
+                        .addGap(0, 0, Short.MAX_VALUE)))
+                .addContainerGap())
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void totalFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_totalFieldActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_totalFieldActionPerformed
-
     private void removeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeButtonActionPerformed
         try {
-            // Obtener el índice de la fila seleccionada
             int selectedRow = inventoryTable.getSelectedRow();
 
-            if (selectedRow != -1) { // Verificar si se seleccionó una fila
-                // Obtener el id del producto seleccionado
+            if (selectedRow != -1) { 
                 int productId = (int) inventoryTable.getValueAt(selectedRow, 0);
+                String dbms = (String) inventoryTable.getValueAt(selectedRow, 5);
 
-                // Obtener el producto de la base de datos
-                DBConnection conn = DBConnection.getInstance();
-                IProduct productToRemove = conn.selectProductById(productId);
+                IProduct productToRemove = conn.selectProductByIdAndDBMS(productId, dbms);
 
-                // Eliminar el producto de la base de datos
                 conn.deleteProduct(productToRemove);
 
-                // Recargar la tabla para mostrar los cambios
                 loadProducts();
 
-                // Limpiar los campos del formulario después de eliminar
                 clearFormFields();
             } else {
-                // Mostrar un mensaje indicando que no se ha seleccionado un producto
                 System.out.println("Seleccione un producto para eliminar.");
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }//GEN-LAST:event_removeButtonActionPerformed
+
+    private void cloneButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cloneButtonActionPerformed
+        try {
+            int selectedRow = inventoryTable.getSelectedRow();
+
+            if (selectedRow != -1) {
+                int productId = (int) inventoryTable.getValueAt(selectedRow, 0);
+                String name = (String) inventoryTable.getValueAt(selectedRow, 1);
+                int quantity = (int) inventoryTable.getValueAt(selectedRow, 2);
+                float pricePerUnit = (float) inventoryTable.getValueAt(selectedRow, 3);
+                String dbms = (String) inventoryTable.getValueAt(selectedRow, 5);
+
+                String clonedName = nameField.getText();
+                int clonedCount = Integer.parseInt(countField.getText());
+                float clonedPrice = Float.parseFloat(priceField.getText());
+
+                IProduct clonedProduct = ProductFactory.factory(clonedName, clonedCount, clonedPrice);
+
+                conn.insertProduct(clonedProduct);
+
+                loadProducts();
+
+                clearFormFields();
+            } else {
+                System.out.println("Seleccione un producto para clonar.");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }//GEN-LAST:event_cloneButtonActionPerformed
+
+    private void cancelButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cancelButtonActionPerformed
+        clearFormFields();
+    }//GEN-LAST:event_cancelButtonActionPerformed
 
     /**
      * @param args the command line arguments
@@ -467,6 +496,7 @@ public class AgileInventoryFrame extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton Clone;
     private javax.swing.JButton cancelButton;
     private javax.swing.JTextField countField;
     private javax.swing.JTextField dbmsField;
