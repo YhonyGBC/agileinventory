@@ -15,10 +15,9 @@ public class TotalPriceObserver extends CustomObserver {
         float total = 0;
         for (IProduct product : (ArrayList<IProduct>) property) {
             total += product.getPricePerUnit() * product.getQuantity();
-            System.out.println(total);
         }
         String totalText = new DecimalFormat().format(total);
 
-        super.update(totalText);
+        super.update("$ " + totalText);
     }
 }
