@@ -1,524 +1,629 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
- */
 package com.mycompany.agileinventory;
 
-import javax.swing.table.DefaultTableModel;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.EventQueue;
+import java.awt.Font;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.sql.SQLException;
-import java.util.List;
-import java.text.DecimalFormat;
+import java.util.ArrayList;
 
-public class AgileInventoryFrame extends javax.swing.JFrame {
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellRenderer;
+import javax.swing.table.TableColumn;
+import javax.swing.GroupLayout;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.LayoutStyle;
+
+public class AgileInventoryFrame extends JFrame {
+
     private DBConnection conn;
+    private ArrayList<IProduct> products;
+    private CustomObservable observable;
+    private QuantityObserver quantityObserver;
+    private TotalPriceObserver totalPriceObserver;
 
     public AgileInventoryFrame() {
+        this.conn = DBConnection.getInstance();
+        this.products = new ArrayList<>();
+        this.observable = new CustomObservable(products);
+
         initComponents();
-        
-        conn = DBConnection.getInstance();
-        
         customInitComponents();
 
-        inventoryTable.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                inventoryTableMouseClicked(evt);
-            }
-        });
+        this.setVisible(true);
     }
-    
+
     private void customInitComponents() {
-        // Elimina las filas por defecto de la tabla
-        DefaultTableModel model = (DefaultTableModel) inventoryTable.getModel();
+        this.loadProducts();
+        this.clearForm();
+    }
+
+    private void loadProducts() {
+        this.products.clear();
+
+        try {
+            this.products.addAll(this.conn.selectProducts());
+        } catch (SQLException e) {
+            this.callDialog("Error at Load Products", "Could not connect to the database",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+
+        DefaultTableModel model = (DefaultTableModel) this.inventoryTable.getModel();
         model.setRowCount(0);
 
-        loadProducts();
-        clearFormFields();
+        for (IProduct product : products) {
+            char prefix = product.getDBMS().charAt(0);
 
-        saveButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                saveButtonActionPerformed(evt);
-            }
-        });
-    }
-    
-    private void loadProducts() {
-        try {
-            List<IProduct> products = conn.selectProducts();
-
-            DefaultTableModel model = (DefaultTableModel) inventoryTable.getModel();
-            model.setRowCount(0);
-
-            for (IProduct product : products) {
-                Object[] row = {
-                        product.getId(),
-                        product.getName(),
-                        product.getQuantity(),
-                        product.getPricePerUnit(),
-                        product.getQuantity() * product.getPricePerUnit(),
-                        product.getDBMS()
-                };
-                model.addRow(row);
-            }
-
-            // Actualiza el campo de total y el campo de recuento de productos
-            updateTotalField();
-            updateProductCountField();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-    
-    private void updateTotalField() {
-        DefaultTableModel model = (DefaultTableModel) inventoryTable.getModel();
-        float total = 0;
-
-        for (int i = 0; i < model.getRowCount(); i++) {
-            total += (float) model.getValueAt(i, 4); 
+            Object[] row = {
+                    "P" + prefix + product.getId(),
+                    product.getName(),
+                    product.getQuantity(),
+                    product.getPricePerUnit(),
+                    product.getQuantity() * product.getPricePerUnit(),
+                    product.getDBMS()
+            };
+            model.addRow(row);
         }
 
-        // Formatear el valor total utilizando DecimalFormat
-        DecimalFormat decimalFormat = new DecimalFormat("#,###.00");
-        String formattedTotal = decimalFormat.format(total);
-        
-        totalField.setText(String.valueOf(formattedTotal));
+        this.observable.notifyAllObservers();
     }
-    
-    private void updateProductCountField() {
-        DefaultTableModel model = (DefaultTableModel) inventoryTable.getModel();
-        int rowCount = model.getRowCount();
-        pCountField.setText(String.valueOf(rowCount));
+
+    private void callDialog(String title, String message, int type) {
+        JOptionPane.showMessageDialog(this, message, title, type);
     }
-    
-    private void saveButtonActionPerformed(java.awt.event.ActionEvent evt) {                                           
+
+    private void clearForm() {
+        this.idField.setText("");
+        this.nameField.setText("");
+        this.quantityField.setText("");
+        this.pricePerUnitField.setText("");
+        this.DBMSField.setText("");
+
+        this.operationLabel.setText("Add new Product");
+        this.cloneButton.setVisible(false);
+        this.removeButton.setVisible(false);
+        this.clearCancelButton.setText("Clear");
+    }
+
+    private IProduct searchProduct(int id, String DBMS) {
+        for (IProduct product : this.products)
+            if (product.getId() == id && product.getDBMS().equals(DBMS))
+                return product;
+        return null;
+    }
+
+    private void inventoryTableMouseClicked(MouseEvent evt) {
+        int selectedRow = this.inventoryTable.getSelectedRow();
+
+        if (selectedRow != -1) {
+            String idText = (String) this.inventoryTable.getValueAt(selectedRow, 0);
+            int productId = Integer.parseInt(idText.substring(2));
+            String DBMS = (String) this.inventoryTable.getValueAt(selectedRow, 5);
+
+            IProduct selectedProduct = this.searchProduct(productId, DBMS);
+
+            if (selectedProduct != null) {
+                this.idField.setText(idText);
+                this.nameField.setText(selectedProduct.getName());
+                this.quantityField.setText(selectedProduct.getQuantity() + "");
+                this.pricePerUnitField.setText(selectedProduct.getPricePerUnit() + "");
+                this.DBMSField.setText(DBMS);
+            } else {
+                System.out.println("No se encontró el producto con ID: " + productId + " y DBMS: " + DBMS);
+            }
+
+            this.operationLabel.setText("Edit Product");
+            this.cloneButton.setVisible(true);
+            this.removeButton.setVisible(true);
+            this.clearCancelButton.setText("Cancel");
+        }
+    }
+
+    private boolean considerUpdateDatabase(IProduct product) {
+        String correctDatabase;
+
+        if (product.getPricePerUnit() > 100000)
+            correctDatabase = "MySQL";
+        else
+            correctDatabase = "PostgreSQL";
+
+        if (!product.getDBMS().equals(correctDatabase)) {
+            try {
+                IProduct newProduct = product.clone();
+                newProduct.setDBMS(correctDatabase);
+
+                this.conn.deleteProduct(product);
+                this.conn.insertProduct(newProduct);
+
+                return true;
+            } catch (Exception e) {
+            }
+        }
+        return false;
+    }
+
+    private void saveButtonActionPerformed(ActionEvent evt) {
+        IProduct product;
+        String idText = this.idField.getText();
+        int id;
+        String name = this.nameField.getText();
+        String quantityText = this.quantityField.getText();
+        String priceText = this.pricePerUnitField.getText();
+        String DBMS = this.DBMSField.getText();
+
+        int quantity;
+        float pricePerUnit;
+
         try {
-            String name = nameField.getText();
-            int quantity = Integer.parseInt(countField.getText());
-            float pricePerUnit = Float.parseFloat(priceField.getText());
+            quantity = Integer.parseInt(quantityText);
+            pricePerUnit = Float.parseFloat(priceText);
+        } catch (Exception e) {
+            this.callDialog("Error at Save Product", "One field is empty or contains invalid value",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
-            IProduct newProduct = ProductFactory.factory(name, quantity, pricePerUnit);
+        try {
+            if (idText.equals("")) {
+                product = ProductFactory.factory(name, quantity, pricePerUnit);
+                this.conn.insertProduct(product);
+                this.callDialog("Product Added", "The product was added successfully", JOptionPane.INFORMATION_MESSAGE);
 
-            conn.insertProduct(newProduct);
+            } else {
+                id = Integer.parseInt(idText.substring(2));
 
-            loadProducts();
+                product = this.searchProduct(id, DBMS);
+                product.setName(name);
+                product.setQuantity(quantity);
+                product.setPricePerUnit(pricePerUnit);
 
-            clearFormFields();
+                if (!this.considerUpdateDatabase(product))
+                    this.conn.updateProduct(product);
+
+                this.callDialog("Product Updated", "The product was updated successfully",
+                        JOptionPane.INFORMATION_MESSAGE);
+            }
         } catch (NumberFormatException | SQLException e) {
-            e.printStackTrace();
+            this.callDialog("Error at Save Product", "Could not connect to the database",
+                    JOptionPane.ERROR_MESSAGE);
         }
+
+        this.loadProducts();
+        this.clearForm();
     }
 
-    private void clearFormFields() {
-        idField.setText("");
-        nameField.setText("");
-        countField.setText("");
-        priceField.setText("");
-        dbmsField.setText("");
-    }
-    
-    private void inventoryTableMouseClicked(java.awt.event.MouseEvent evt) {                                           
+    private void removeButtonActionPerformed(ActionEvent evt) {
         try {
             int selectedRow = inventoryTable.getSelectedRow();
 
             if (selectedRow != -1) {
-                int productId = (int) inventoryTable.getValueAt(selectedRow, 0);
-                String dbms = (String) inventoryTable.getValueAt(selectedRow, 5);
+                String idText = this.idField.getText().substring(2);
+                int productId = Integer.parseInt(idText);
+                String DBMS = this.DBMSField.getText();
 
-                IProduct selectedProduct = conn.selectProductByIdAndDBMS(productId, dbms);
+                int option = JOptionPane.showOptionDialog(this, "Are you sure about deleting the product?",
+                        "Delete product", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, null, null);
 
-                if (selectedProduct != null) {
-                    idField.setText(String.valueOf(selectedProduct.getId()));
-                    nameField.setText(selectedProduct.getName());
-                    countField.setText(String.valueOf(selectedProduct.getQuantity()));
-                    priceField.setText(String.valueOf(selectedProduct.getPricePerUnit()));
-                    dbmsField.setText(selectedProduct.getDBMS());
-                } else {
-                    System.out.println("No se encontró el producto con ID: " + productId + " y DBMS: " + dbms);
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
+                if (option != JOptionPane.YES_OPTION)
+                    return;
 
-    @SuppressWarnings("unchecked")
-    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
-    private void initComponents() {
+                IProduct productToRemove = this.searchProduct(productId, DBMS);
+                this.conn.deleteProduct(productToRemove);
 
-        jPanel1 = new javax.swing.JPanel();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        inventoryTable = new javax.swing.JTable();
-        jLabel1 = new javax.swing.JLabel();
-        jLabel2 = new javax.swing.JLabel();
-        totalField = new javax.swing.JTextField();
-        jLabel3 = new javax.swing.JLabel();
-        jPanel2 = new javax.swing.JPanel();
-        jLabel4 = new javax.swing.JLabel();
-        jLabel5 = new javax.swing.JLabel();
-        jLabel6 = new javax.swing.JLabel();
-        nameField = new javax.swing.JTextField();
-        jLabel7 = new javax.swing.JLabel();
-        countField = new javax.swing.JTextField();
-        jLabel8 = new javax.swing.JLabel();
-        priceField = new javax.swing.JTextField();
-        jLabel9 = new javax.swing.JLabel();
-        saveButton = new javax.swing.JButton();
-        removeButton = new javax.swing.JButton();
-        cancelButton = new javax.swing.JButton();
-        idField = new javax.swing.JTextField();
-        dbmsField = new javax.swing.JTextField();
-        Clone = new javax.swing.JButton();
-        pCountField = new javax.swing.JTextField();
+                this.callDialog("Product Deleted", "The product was updated successfully",
+                        JOptionPane.INFORMATION_MESSAGE);
 
-        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
-        jPanel1.setLayout(jPanel1Layout);
-        jPanel1Layout.setHorizontalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 100, Short.MAX_VALUE)
-        );
-        jPanel1Layout.setVerticalGroup(
-            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 100, Short.MAX_VALUE)
-        );
-
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-        setPreferredSize(new java.awt.Dimension(900, 500));
-
-        inventoryTable.setBackground(new java.awt.Color(204, 204, 204));
-        inventoryTable.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-                {null, null, null, null, null, null},
-                {null, null, null, null, null, null},
-                {null, null, null, null, null, null},
-                {null, null, null, null, null, null}
-            },
-            new String [] {
-                "Id", "Name", "Count", "Price per unit", "Subtotal", "DBMS"
-            }
-        ) {
-            Class[] types = new Class [] {
-                java.lang.Integer.class, java.lang.String.class, java.lang.Integer.class, java.lang.Float.class, java.lang.Float.class, java.lang.String.class
-            };
-
-            public Class getColumnClass(int columnIndex) {
-                return types [columnIndex];
-            }
-        });
-        jScrollPane1.setViewportView(inventoryTable);
-
-        jLabel1.setFont(new java.awt.Font("Segoe UI", 1, 24)); // NOI18N
-        jLabel1.setText("Agile Inventory");
-
-        jLabel2.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
-        jLabel2.setText("Products count:");
-
-        totalField.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        totalField.setText("totalField");
-        totalField.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-
-        jLabel3.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
-        jLabel3.setText("Total:");
-
-        jPanel2.setBackground(new java.awt.Color(204, 204, 204));
-        jPanel2.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-
-        jLabel4.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        jLabel4.setText("Add/Clone/Remove Product");
-
-        jLabel5.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        jLabel5.setText("Id:");
-
-        jLabel6.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        jLabel6.setText("Name:");
-
-        nameField.setText("nameField");
-
-        jLabel7.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        jLabel7.setText("Count:");
-
-        countField.setText("countField");
-
-        jLabel8.setFont(new java.awt.Font("Segoe UI", 0, 14)); // NOI18N
-        jLabel8.setText("Price:");
-
-        priceField.setText("priceField");
-
-        jLabel9.setText("DBMS:");
-
-        saveButton.setBackground(new java.awt.Color(0, 255, 0));
-        saveButton.setText("Save");
-        saveButton.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-
-        removeButton.setBackground(new java.awt.Color(255, 255, 0));
-        removeButton.setText("Remove");
-        removeButton.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-        removeButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                removeButtonActionPerformed(evt);
-            }
-        });
-
-        cancelButton.setBackground(new java.awt.Color(255, 0, 0));
-        cancelButton.setText("Cancel");
-        cancelButton.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-        cancelButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                cancelButtonActionPerformed(evt);
-            }
-        });
-
-        idField.setText("idField");
-        idField.setEnabled(false);
-
-        dbmsField.setText("dbmsField");
-        dbmsField.setEnabled(false);
-
-        Clone.setBackground(new java.awt.Color(0, 0, 255));
-        Clone.setText("Clone");
-        Clone.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-        Clone.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                cloneButtonActionPerformed(evt);
-            }
-        });
-
-        javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
-        jPanel2.setLayout(jPanel2Layout);
-        jPanel2Layout.setHorizontalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addGap(12, 12, 12)
-                        .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jLabel9)
-                            .addGroup(jPanel2Layout.createSequentialGroup()
-                                .addComponent(jLabel5)
-                                .addGap(52, 52, 52)
-                                .addComponent(idField, javax.swing.GroupLayout.PREFERRED_SIZE, 190, javax.swing.GroupLayout.PREFERRED_SIZE))
-                            .addGroup(jPanel2Layout.createSequentialGroup()
-                                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addComponent(jLabel6)
-                                    .addComponent(jLabel7)
-                                    .addComponent(jLabel8))
-                                .addGap(26, 26, 26)
-                                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addComponent(countField, javax.swing.GroupLayout.PREFERRED_SIZE, 188, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                    .addComponent(nameField, javax.swing.GroupLayout.PREFERRED_SIZE, 190, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                    .addComponent(priceField, javax.swing.GroupLayout.PREFERRED_SIZE, 188, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                    .addComponent(dbmsField, javax.swing.GroupLayout.PREFERRED_SIZE, 188, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                    .addComponent(saveButton, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                    .addComponent(cancelButton, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                    .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                                        .addComponent(Clone, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                        .addComponent(removeButton, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 100, Short.MAX_VALUE))))))
-                    .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addGap(29, 29, 29)
-                        .addComponent(jLabel4)))
-                .addContainerGap(17, Short.MAX_VALUE))
-        );
-        jPanel2Layout.setVerticalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jLabel4)
-                .addGap(26, 26, 26)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel5)
-                    .addComponent(idField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(18, 18, 18)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel6)
-                    .addComponent(nameField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(18, 18, 18)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel7)
-                    .addComponent(countField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(18, 18, 18)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel8)
-                    .addComponent(priceField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(18, 18, 18)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel9)
-                    .addComponent(dbmsField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(18, 18, 18)
-                .addComponent(saveButton)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(Clone)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(removeButton)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(cancelButton)
-                .addContainerGap(23, Short.MAX_VALUE))
-        );
-
-        pCountField.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        pCountField.setText("pCountField");
-        pCountField.setEnabled(false);
-
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(jLabel2, javax.swing.GroupLayout.PREFERRED_SIZE, 115, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(pCountField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(jLabel3)
-                        .addGap(18, 18, 18)
-                        .addComponent(totalField, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addContainerGap())
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                        .addGap(0, 4, Short.MAX_VALUE)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                                .addComponent(jLabel1)
-                                .addGap(162, 162, 162))
-                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 488, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addContainerGap())))))
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addGap(12, 12, 12)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(jLabel1)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 240, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(18, 18, 18)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(totalField, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(jLabel3)
-                            .addComponent(pCountField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(jLabel2))
-                        .addGap(0, 0, Short.MAX_VALUE)))
-                .addContainerGap())
-        );
-
-        pack();
-    }// </editor-fold>//GEN-END:initComponents
-
-    private void removeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeButtonActionPerformed
-        try {
-            int selectedRow = inventoryTable.getSelectedRow();
-
-            if (selectedRow != -1) { 
-                int productId = (int) inventoryTable.getValueAt(selectedRow, 0);
-                String dbms = (String) inventoryTable.getValueAt(selectedRow, 5);
-
-                IProduct productToRemove = conn.selectProductByIdAndDBMS(productId, dbms);
-
-                conn.deleteProduct(productToRemove);
-
-                loadProducts();
-
-                clearFormFields();
+                this.loadProducts();
+                this.clearForm();
             } else {
                 System.out.println("Seleccione un producto para eliminar.");
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            this.callDialog("Error at Remove Product", "Could not connect to the database",
+                    JOptionPane.ERROR_MESSAGE);
         }
-    }//GEN-LAST:event_removeButtonActionPerformed
-
-    private void cloneButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cloneButtonActionPerformed
-        try {
-            int selectedRow = inventoryTable.getSelectedRow();
-
-            if (selectedRow != -1) {
-                int productId = (int) inventoryTable.getValueAt(selectedRow, 0);
-                String name = (String) inventoryTable.getValueAt(selectedRow, 1);
-                int quantity = (int) inventoryTable.getValueAt(selectedRow, 2);
-                float pricePerUnit = (float) inventoryTable.getValueAt(selectedRow, 3);
-                String dbms = (String) inventoryTable.getValueAt(selectedRow, 5);
-
-                String clonedName = nameField.getText();
-                int clonedCount = Integer.parseInt(countField.getText());
-                float clonedPrice = Float.parseFloat(priceField.getText());
-
-                IProduct clonedProduct = ProductFactory.factory(clonedName, clonedCount, clonedPrice);
-
-                conn.insertProduct(clonedProduct);
-
-                loadProducts();
-
-                clearFormFields();
-            } else {
-                System.out.println("Seleccione un producto para clonar.");
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }//GEN-LAST:event_cloneButtonActionPerformed
-
-    private void cancelButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cancelButtonActionPerformed
-        clearFormFields();
-    }//GEN-LAST:event_cancelButtonActionPerformed
-
-    /**
-     * @param args the command line arguments
-     */
-    public static void main(String args[]) {
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
-         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
-        try {
-            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(AgileInventoryFrame.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(AgileInventoryFrame.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(AgileInventoryFrame.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(AgileInventoryFrame.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
-        //</editor-fold>
-
-        /* Create and display the form */
-        java.awt.EventQueue.invokeLater(() -> new AgileInventoryFrame().setVisible(true));
     }
 
-    // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton Clone;
-    private javax.swing.JButton cancelButton;
-    private javax.swing.JTextField countField;
-    private javax.swing.JTextField dbmsField;
-    private javax.swing.JTextField idField;
-    private javax.swing.JTable inventoryTable;
-    private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel2;
-    private javax.swing.JLabel jLabel3;
-    private javax.swing.JLabel jLabel4;
-    private javax.swing.JLabel jLabel5;
-    private javax.swing.JLabel jLabel6;
-    private javax.swing.JLabel jLabel7;
-    private javax.swing.JLabel jLabel8;
-    private javax.swing.JLabel jLabel9;
-    private javax.swing.JPanel jPanel1;
-    private javax.swing.JPanel jPanel2;
-    private javax.swing.JScrollPane jScrollPane1;
-    private javax.swing.JTextField nameField;
-    private javax.swing.JTextField pCountField;
-    private javax.swing.JTextField priceField;
-    private javax.swing.JButton removeButton;
-    private javax.swing.JButton saveButton;
-    private javax.swing.JTextField totalField;
-    // End of variables declaration//GEN-END:variables
+    private void cloneButtonActionPerformed(ActionEvent evt) {
+        int selectedRow = this.inventoryTable.getSelectedRow();
+
+        if (selectedRow != -1) {
+            String idText = this.idField.getText().substring(2);
+            int productId = Integer.parseInt(idText);
+            String productDBMS = this.DBMSField.getText();
+
+            IProduct selectedProduct = this.searchProduct(productId, productDBMS);
+            try {
+                IProduct clonedProduct = selectedProduct.clone();
+                this.conn.insertProduct(clonedProduct);
+
+                this.callDialog("Product Cloned", "The product was cloned successfully",
+                        JOptionPane.INFORMATION_MESSAGE);
+
+            } catch (SQLException | CloneNotSupportedException e) {
+                this.callDialog("Error at Clone Product", "Could not connect to the database",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+
+            this.loadProducts();
+            this.clearForm();
+        } else {
+            System.out.println("Seleccione un producto para clonar.");
+        }
+    }
+
+    private void cancelButtonActionPerformed(ActionEvent evt) {
+        clearForm();
+    }
+
+    private void initComponents() {
+        this.scrollPane1 = new JScrollPane();
+        this.inventoryTable = new JTable();
+        this.title = new JLabel();
+        this.countLabel = new JLabel();
+        this.totalField = new JTextField();
+        this.totalPriceLabel = new JLabel();
+        this.panel = new JPanel();
+        this.operationLabel = new JLabel();
+        this.idLabel = new JLabel();
+        this.nameLabel = new JLabel();
+        this.nameField = new JTextField();
+        this.quantityLabel = new JLabel();
+        this.quantityField = new JTextField();
+        this.priceLabel = new JLabel();
+        this.pricePerUnitField = new JTextField();
+        this.DBMSLabel = new JLabel();
+        this.saveButton = new JButton();
+        this.removeButton = new JButton();
+        this.clearCancelButton = new JButton();
+        this.idField = new JTextField();
+        this.DBMSField = new JTextField();
+        this.cloneButton = new JButton();
+        this.countLabel2 = new JLabel();
+
+        this.quantityObserver = new QuantityObserver(countLabel2);
+        this.totalPriceObserver = new TotalPriceObserver(totalField);
+        this.observable.addObserver(quantityObserver);
+        this.observable.addObserver(totalPriceObserver);
+
+        Dimension dimension = new Dimension(900, 500);
+        this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        this.setMinimumSize(dimension);
+        this.setPreferredSize(dimension);
+        this.setLocationRelativeTo(null);
+
+        this.inventoryTable.setModel(new DefaultTableModel(
+                new String[] {
+                        "Id", "Name", "Quantity", "Price per Unit $", "Subtotal $", "DBMS"
+                }, 0) {
+        });
+        this.inventoryTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent evt) {
+                inventoryTableMouseClicked(evt);
+            }
+        });
+
+        this.inventoryTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+
+        this.scrollPane1.setViewportView(inventoryTable);
+
+        this.title.setFont(new Font("Segoe UI", 1, 24)); // NOI18N
+        this.title.setText("Agile Inventory");
+
+        this.operationLabel.setFont(new Font("Segoe UI", 0, 18)); // NOI18N
+        this.operationLabel.setText("Add Product");
+
+        this.idLabel.setFont(new Font("Segoe UI", 0, 14)); // NOI18N
+        this.idLabel.setText("Id:");
+
+        this.nameLabel.setFont(new Font("Segoe UI", 0, 14)); // NOI18N
+        this.nameLabel.setText("Name:");
+
+        this.quantityLabel.setFont(new Font("Segoe UI", 0, 14)); // NOI18N
+        this.quantityLabel.setText("Quantity:");
+
+        this.priceLabel.setFont(new Font("Segoe UI", 0, 14)); // NOI18N
+        this.priceLabel.setText("Price per Unit:");
+
+        this.DBMSLabel.setFont(new Font("Segoe UI", 0, 14));
+        this.DBMSLabel.setText("DBMS:");
+
+        this.countLabel.setFont(new Font("Segoe UI", 1, 14)); // NOI18N
+        this.countLabel.setText("Products count:");
+
+        this.countLabel2.setFont(new Font("Segoe UI", 0, 12)); // NOI18N
+        this.countLabel2.setText("0");
+
+        this.totalPriceLabel.setFont(new Font("Segoe UI", 1, 14)); // NOI18N
+        this.totalPriceLabel.setText("Total:");
+
+        // totalField.setBorder(BorderFactory.createBevelBorder(border.BevelBorder.RAISED));
+
+        // jPanel2.setBackground(new Color(204, 204, 204));
+        // jPanel2.setBorder(BorderFactory.createBevelBorder(BevelBorder.RAISED));
+
+        this.idField.setText("idField");
+        this.idField.setEnabled(false);
+
+        this.DBMSField.setText("dbmsField");
+        this.DBMSField.setEnabled(false);
+
+        this.nameField.setText("nameField");
+
+        this.quantityField.setText("countField");
+
+        this.pricePerUnitField.setText("priceField");
+
+        this.totalField.setFont(new Font("Segoe UI", 1, 12)); // NOI18N
+        this.totalField.setText("$ 0");
+
+        // saveButton.setBackground(new Color(0, 255, 0));
+        this.saveButton.setText("Save");
+        // saveButton.setBorder(BorderFactory.createBevelBorder(BevelBorder.RAISED));
+        saveButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
+                saveButtonActionPerformed(evt);
+            }
+        });
+
+        // removeButton.setBackground(new Color(255, 255, 0));
+        this.removeButton.setText("Remove");
+        this.removeButton.setVisible(false);
+        // removeButton.setBorder(BorderFactory.createBevelBorder(BevelBorder.RAISED));
+        this.removeButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
+                removeButtonActionPerformed(evt);
+            }
+        });
+
+        // cancelButton.setBackground(new Color(255, 0, 0));
+        this.clearCancelButton.setText("Clear");
+        // cancelButton.setBorder(BorderFactory.createBevelBorder(border.BevelBorder.RAISED));
+        this.clearCancelButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
+                cancelButtonActionPerformed(evt);
+            }
+        });
+
+        // Clone.setBackground(new java.awt.Color(0, 0, 255));
+        this.cloneButton.setText("Clone");
+        this.cloneButton.setVisible(false);
+        // Clone.setBorder(BorderFactory.createBevelBorder(border.BevelBorder.RAISED));
+        this.cloneButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
+                cloneButtonActionPerformed(evt);
+            }
+        });
+
+        GroupLayout jPanel2Layout = new GroupLayout(panel);
+        panel.setLayout(jPanel2Layout);
+        jPanel2Layout.setHorizontalGroup(
+                jPanel2Layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+                        .addGroup(jPanel2Layout.createSequentialGroup()
+                                .addGroup(jPanel2Layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+                                        .addGroup(jPanel2Layout.createSequentialGroup()
+                                                .addGap(12, 12, 12)
+                                                .addGroup(jPanel2Layout
+                                                        .createParallelGroup(GroupLayout.Alignment.LEADING)
+                                                        .addGroup(jPanel2Layout.createSequentialGroup()
+                                                        // .addComponent(idLabel)
+                                                        // .addGap(52, 52, 52)
+                                                        // .addComponent(idField, GroupLayout.PREFERRED_SIZE, 190,
+                                                        // GroupLayout.PREFERRED_SIZE)
+                                                        )
+                                                        .addGroup(jPanel2Layout.createSequentialGroup()
+                                                                .addGroup(jPanel2Layout
+                                                                        .createParallelGroup(
+                                                                                GroupLayout.Alignment.LEADING)
+                                                                        .addComponent(idLabel)
+                                                                        .addComponent(nameLabel)
+                                                                        .addComponent(quantityLabel)
+                                                                        .addComponent(DBMSLabel)
+                                                                        .addComponent(priceLabel))
+                                                                .addGap(26, 26, 26)
+                                                                .addGroup(jPanel2Layout
+                                                                        .createParallelGroup(
+                                                                                GroupLayout.Alignment.LEADING)
+                                                                        .addComponent(idField,
+                                                                                GroupLayout.PREFERRED_SIZE, 188,
+                                                                                GroupLayout.PREFERRED_SIZE)
+                                                                        .addComponent(nameField,
+                                                                                GroupLayout.PREFERRED_SIZE, 188,
+                                                                                GroupLayout.PREFERRED_SIZE)
+                                                                        .addComponent(quantityField,
+                                                                                GroupLayout.PREFERRED_SIZE, 188,
+                                                                                GroupLayout.PREFERRED_SIZE)
+                                                                        .addComponent(pricePerUnitField,
+                                                                                GroupLayout.PREFERRED_SIZE, 188,
+                                                                                GroupLayout.PREFERRED_SIZE)
+                                                                        .addComponent(DBMSField,
+                                                                                GroupLayout.PREFERRED_SIZE, 188,
+                                                                                GroupLayout.PREFERRED_SIZE)
+                                                                        .addComponent(saveButton,
+                                                                                GroupLayout.PREFERRED_SIZE, 100,
+                                                                                GroupLayout.PREFERRED_SIZE)
+                                                                        .addComponent(cloneButton,
+                                                                                GroupLayout.PREFERRED_SIZE, 100,
+                                                                                GroupLayout.PREFERRED_SIZE)
+                                                                        .addComponent(removeButton,
+                                                                                GroupLayout.PREFERRED_SIZE, 100,
+                                                                                GroupLayout.PREFERRED_SIZE)
+                                                                        .addComponent(clearCancelButton,
+                                                                                GroupLayout.PREFERRED_SIZE, 100,
+                                                                                GroupLayout.PREFERRED_SIZE)
+                                                                // .addGroup(jPanel2Layout
+                                                                // .createParallelGroup(
+                                                                // GroupLayout.Alignment.TRAILING,
+                                                                // false)
+                                                                // .addComponent(cloneButton,
+                                                                // GroupLayout.Alignment.LEADING,
+                                                                // GroupLayout.DEFAULT_SIZE,
+                                                                // GroupLayout.DEFAULT_SIZE,
+                                                                // Short.MAX_VALUE)
+                                                                // .addComponent(removeButton,
+                                                                // GroupLayout.Alignment.LEADING,
+                                                                // GroupLayout.DEFAULT_SIZE, 100,
+                                                                // Short.MAX_VALUE))
+                                                                ))))
+                                        .addGroup(jPanel2Layout.createSequentialGroup()
+                                                .addGap(29, 29, 29)
+                                                .addComponent(operationLabel)))
+                                .addContainerGap(17, Short.MAX_VALUE)));
+        jPanel2Layout.setVerticalGroup(
+                jPanel2Layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+                        .addGroup(jPanel2Layout.createSequentialGroup()
+                                .addContainerGap()
+                                .addComponent(operationLabel)
+                                .addGap(26, 26, 26)
+                                .addGroup(jPanel2Layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                        .addComponent(idLabel)
+                                        .addComponent(idField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE,
+                                                GroupLayout.PREFERRED_SIZE))
+                                .addGap(18, 18, 18)
+                                .addGroup(jPanel2Layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                        .addComponent(nameLabel)
+                                        .addComponent(nameField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE,
+                                                GroupLayout.PREFERRED_SIZE))
+                                .addGap(18, 18, 18)
+                                .addGroup(jPanel2Layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                        .addComponent(quantityLabel)
+                                        .addComponent(quantityField, GroupLayout.PREFERRED_SIZE,
+                                                GroupLayout.DEFAULT_SIZE,
+                                                GroupLayout.PREFERRED_SIZE))
+                                .addGap(18, 18, 18)
+                                .addGroup(jPanel2Layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                        .addComponent(priceLabel)
+                                        .addComponent(pricePerUnitField, GroupLayout.PREFERRED_SIZE,
+                                                GroupLayout.DEFAULT_SIZE,
+                                                GroupLayout.PREFERRED_SIZE))
+                                .addGap(18, 18, 18)
+                                .addGroup(jPanel2Layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                        .addComponent(DBMSLabel)
+                                        .addComponent(DBMSField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE,
+                                                GroupLayout.PREFERRED_SIZE))
+                                .addGap(18, 18, 18)
+                                .addComponent(saveButton)
+                                .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(cloneButton)
+                                .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(removeButton)
+                                .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(clearCancelButton)
+                                .addContainerGap(23, Short.MAX_VALUE)));
+
+        GroupLayout layout = new GroupLayout(getContentPane());
+        getContentPane().setLayout(layout);
+        layout.setHorizontalGroup(
+                layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+                        .addGroup(layout.createSequentialGroup()
+                                .addContainerGap()
+                                .addComponent(panel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE,
+                                        GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+                                        .addGroup(layout.createSequentialGroup()
+                                                .addComponent(countLabel, GroupLayout.PREFERRED_SIZE,
+                                                        GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
+                                                .addComponent(countLabel2, GroupLayout.PREFERRED_SIZE,
+                                                        GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
+                                                // .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED)
+                                                .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED,
+                                                        GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                                // .addComponent(totalPriceLabel)
+                                                .addComponent(totalPriceLabel, GroupLayout.PREFERRED_SIZE,
+                                                        GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
+                                                // .addGap(18, 18, 18)
+                                                .addComponent(totalField, GroupLayout.PREFERRED_SIZE,
+                                                        GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
+                                                .addContainerGap())
+                                        .addGroup(GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                                .addGap(0, 4, Short.MAX_VALUE)
+                                                .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+                                                        .addGroup(GroupLayout.Alignment.TRAILING,
+                                                                layout.createSequentialGroup()
+                                                                        .addComponent(title)
+                                                                        .addGap(162, 162, 162))
+                                                        .addGroup(GroupLayout.Alignment.TRAILING, layout
+                                                                .createSequentialGroup()
+                                                                .addComponent(scrollPane1, GroupLayout.PREFERRED_SIZE,
+                                                                        GroupLayout.DEFAULT_SIZE,
+                                                                        GroupLayout.PREFERRED_SIZE)
+                                                                .addContainerGap()))))));
+        layout.setVerticalGroup(
+                layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+                        .addGroup(layout.createSequentialGroup()
+                                .addGap(12, 12, 12)
+                                .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+                                        .addComponent(panel, GroupLayout.DEFAULT_SIZE, GroupLayout.DEFAULT_SIZE,
+                                                Short.MAX_VALUE)
+                                        .addGroup(layout.createSequentialGroup()
+                                                .addComponent(title)
+                                                .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED)
+                                                .addComponent(scrollPane1, GroupLayout.PREFERRED_SIZE, 240,
+                                                        GroupLayout.PREFERRED_SIZE)
+                                                .addGap(18, 18, 18)
+                                                .addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE)
+                                                        .addComponent(countLabel)
+                                                        .addComponent(countLabel2, GroupLayout.PREFERRED_SIZE,
+                                                                GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
+                                                        .addComponent(totalPriceLabel)
+                                                        .addComponent(totalField, GroupLayout.PREFERRED_SIZE,
+                                                                GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
+                                                        .addGap(0, 0, Short.MAX_VALUE))))
+                                .addContainerGap()));
+        pack();
+    }
+
+    public static void main(String args[]) {
+        // try {
+        // DBConnection.getInstance().resetDatabases();
+        // } catch (Exception e) {
+        // }
+        EventQueue.invokeLater(() -> new AgileInventoryFrame());
+    }
+
+    private JPanel panel;
+
+    private JLabel title;
+    private JLabel operationLabel;
+    private JLabel idLabel;
+    private JLabel nameLabel;
+    private JLabel quantityLabel;
+    private JLabel priceLabel;
+    private JLabel DBMSLabel;
+
+    private JTextField idField;
+    private JTextField nameField;
+    private JTextField pricePerUnitField;
+    private JTextField quantityField;
+    private JTextField DBMSField;
+
+    private JButton saveButton;
+    private JButton cloneButton;
+    private JButton removeButton;
+    private JButton clearCancelButton;
+
+    private JScrollPane scrollPane1;
+    private JTable inventoryTable;
+
+    private JLabel countLabel;
+    private JLabel countLabel2;
+    private JLabel totalPriceLabel;
+    private JTextField totalField;
 }
