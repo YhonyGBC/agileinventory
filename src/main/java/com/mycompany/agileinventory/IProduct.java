@@ -18,4 +18,8 @@ public interface IProduct extends Cloneable {
     public void setQuantity(int quantity);
 
     public void setPricePerUnit(float pricePerUnit);
+
+    public void setDBMS(String DBMS);
+
+    public IProduct clone() throws CloneNotSupportedException;
 }
