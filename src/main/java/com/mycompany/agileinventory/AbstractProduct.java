@@ -61,6 +61,10 @@ public abstract class AbstractProduct implements IProduct {
         this.pricePerUnit = pricePerUnit;
     }
 
+    public void setDBMS(String DBMS) {
+        this.DBMS = DBMS;
+    }
+
     @Override
     public String toString() {
         return "Product [ id: " + this.getId()
