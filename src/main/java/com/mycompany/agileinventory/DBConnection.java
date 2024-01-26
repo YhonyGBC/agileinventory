@@ -7,7 +7,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.List;
 
 public class DBConnection {
 
@@ -67,12 +66,13 @@ public class DBConnection {
         preparedStatement.executeUpdate();
 
         ResultSet generatedKeys = preparedStatement.getGeneratedKeys();
+
         if (generatedKeys.next())
             product.setId(generatedKeys.getInt(1));
     }
 
-    private List<IProduct> selectProductsFromDBMS(String DBMS) throws SQLException {
-        List<IProduct> productList = new ArrayList<>();
+    private ArrayList<IProduct> selectProductsFromDBMS(String DBMS) throws SQLException {
+        ArrayList<IProduct> productList = new ArrayList<>();
         String sql = "SELECT * FROM products";
 
         Connection connection = getDriverManager(DBMS);
@@ -82,27 +82,25 @@ public class DBConnection {
         while (resultSet.next()) {
             if (DBMS == "MySQL") {
                 productList.add(new MySQLProduct(
-                    resultSet.getInt("id"),
-                    resultSet.getString("name"),
-                    resultSet.getInt("quantity"),
-                    resultSet.getFloat("price_per_unit")));
-                
-            } else {
+                        resultSet.getInt("id"),
+                        resultSet.getString("name"),
+                        resultSet.getInt("quantity"),
+                        resultSet.getFloat("price_per_unit")));
 
+            } else {
                 productList.add(new PostgreSQLProduct(
-                    resultSet.getInt("id"),
-                    resultSet.getString("name"),
-                    resultSet.getInt("quantity"),
-                    resultSet.getFloat("price_per_unit")));
-                
+                        resultSet.getInt("id"),
+                        resultSet.getString("name"),
+                        resultSet.getInt("quantity"),
+                        resultSet.getFloat("price_per_unit")));
             }
-        }   
-       
+        }
+
         return productList;
     }
 
-    public List<IProduct> selectProducts() throws SQLException {
-        List<IProduct> products = selectProductsFromDBMS("MySQL");
+    public ArrayList<IProduct> selectProducts() throws SQLException {
+        ArrayList<IProduct> products = selectProductsFromDBMS("MySQL");
         products.addAll(selectProductsFromDBMS("PostgreSQL"));
 
         return products;
@@ -113,11 +111,11 @@ public class DBConnection {
         String sql = "UPDATE products SET name = ?, quantity = ?, price_per_unit = ?, DBMS = ? WHERE id = ?";
 
         PreparedStatement preparedStatement = connection.prepareStatement(sql);
-        preparedStatement.setInt(5, product.getId());
         preparedStatement.setString(1, product.getName());
         preparedStatement.setInt(2, product.getQuantity());
         preparedStatement.setDouble(3, product.getPricePerUnit());
         preparedStatement.setString(4, product.getDBMS());
+        preparedStatement.setInt(5, product.getId());
 
         preparedStatement.executeUpdate();
     }
@@ -142,37 +140,4 @@ public class DBConnection {
         connection.prepareStatement("DELETE FROM products").executeUpdate();
         connection.prepareStatement("ALTER SEQUENCE products_id_seq RESTART WITH 1").executeUpdate();
     }
-    
-    public IProduct selectProductByIdAndDBMS(int productId, String dbms) throws SQLException {
-        String sql = "SELECT * FROM products WHERE id = ? AND DBMS = ?";
-        try (Connection connection = getDriverManager(dbms);
-             PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-            preparedStatement.setInt(1, productId);
-            preparedStatement.setString(2, dbms);
-            ResultSet resultSet = preparedStatement.executeQuery();
-
-            if (resultSet.next()) {
-                String name = resultSet.getString("name");
-                int quantity = resultSet.getInt("quantity");
-                float pricePerUnit = resultSet.getFloat("price_per_unit");
-
-                // Determinar el tipo de producto según el DBMS
-                IProduct product;
-                if ("MySQL".equals(dbms)) {
-                    product = new MySQLProduct(productId, name, quantity, pricePerUnit);
-                } else if ("PostgreSQL".equals(dbms)) {
-                    product = new PostgreSQLProduct(productId, name, quantity, pricePerUnit);
-                } else {
-                    // Manejar un DBMS desconocido según tus necesidades
-                    throw new UnsupportedOperationException("DBMS desconocido: " + dbms);
-                }
-
-                return product;
-            } else {
-                // El producto no fue encontrado
-                return null;
-            }
-        }
-    }
-
 }
